@@ -12,6 +12,19 @@ The blue paddle moves up and down on its own at a consistent speed, while you co
 
 ![image](https://github.com/gyupro/Cyberball_2084/assets/79894531/2c018c99-8579-4965-a715-4d9b5cfea803)
 
+# installation
+
+1. Clone the repository
+
+2. install pygame
+```bash
+pip install pygame
+```
+3. run
+```bash
+python main.py
+```
+
 
 # GPT prompt
 
