@@ -24,6 +24,9 @@ pip install pygame
 ```bash
 python main.py
 ```
+# TODO 
+
+[x] Add RL feature
 
 
 # GPT prompt
