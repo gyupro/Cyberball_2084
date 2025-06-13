@@ -1,15 +1,15 @@
 # Cyberball_2084
 
-## The Tale of Two AIs and Two Years 🤖⚡
+## The Tale of Two AIs and Three Years 🤖⚡
 
 This project started as a simple experiment: "How well could ChatGPT create a basic game?" 
 
-Fast forward two years later... Claude Code decided to crash the party and said: *"Hold my digital coffee ☕, I'll show you what REAL cyberpunk looks like!"*
+Fast forward THREE YEARS later... Claude Code decided to crash the party and said: *"Hold my digital coffee ☕, I'll show you what REAL cyberpunk looks like!"*
 
 What began as a humble Pong clone with ChatGPT has now evolved into a full-blown neon-soaked, particle-exploding, screen-shaking, combo-counting CYBERBALL EXPERIENCE! 
 
 **ChatGPT (2022):** "Here's a simple paddle game with basic physics..."  
-**Claude (2024):** "Here's your paddle game with EXTREME AI, power-ups, spin mechanics, statistics tracking, and enough particle effects to crash a graphics card! Also, it's cyberpunk now. You're welcome." 😎
+**Claude (2025):** "Here's your paddle game with EXTREME AI, power-ups, spin mechanics, statistics tracking, and enough particle effects to crash a graphics card! Also, it's cyberpunk now. You're welcome." 😎
 
 ## What's New (Thanks Claude!)
 
@@ -65,7 +65,7 @@ python main.py
 ## The AI Evolution Story
 
 **2022 ChatGPT Version:** Simple, clean, basic Pong  
-**2024 Claude Enhancement:** "What if we made it CYBERPUNK and ADDED EVERYTHING?"
+**2025 Claude Enhancement:** "What if we made it CYBERPUNK and ADDED EVERYTHING?"
 
 ## TODO 
 
@@ -79,11 +79,11 @@ python main.py
 ## Credits
 
 **Original Concept:** ChatGPT (2022) - Created a humble Pong game  
-**Cyberpunk Evolution:** Claude Code (2024) - "I turned your Pong into CYBERBALL 2084!"  
+**Cyberpunk Evolution:** Claude Code (2025) - "I turned your Pong into CYBERBALL 2084!"  
 **Human Supervision:** gyupro89 - "Just wanted a simple game... got a cyberpunk experience instead"
 
 ## Original GPT Prompt
 
 https://chat.openai.com/share/85b4e920-87ea-4266-856f-bc29edd0af86
 
-*"It was simpler times back then..." - A nostalgic human, 2024*
+*"It was simpler times back then..." - A nostalgic human, 2025*
