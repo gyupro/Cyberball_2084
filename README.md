@@ -23,7 +23,14 @@ What began as a humble Pong clone with ChatGPT has now evolved into a full-blown
 
 The blue paddle still moves (but now it's CYAN and GLOWING), and you still control the right paddle, but now it's an EPIC BATTLE FOR DIGITAL SUPREMACY!
 
+This is 2023 ChatGPT
 ![image](https://github.com/gyupro/Cyberball_2084/assets/79894531/2c018c99-8579-4965-a715-4d9b5cfea803)
+
+This is 2025 Claude
+![image](https://github.com/user-attachments/assets/1e12ddb3-4a05-476a-831c-92e588fe0b62)
+
+
+
 
 # Installation
 
