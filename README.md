@@ -1,14 +1,14 @@
 # Cyberball_2084
 
-## The Tale of Two AIs and Three Years 🤖⚡
+## The Tale of Two AIs and Two Years 🤖⚡
 
 This project started as a simple experiment: "How well could ChatGPT create a basic game?" 
 
-Fast forward THREE YEARS later... Claude Code decided to crash the party and said: *"Hold my digital coffee ☕, I'll show you what REAL cyberpunk looks like!"*
+Fast forward TWO YEARS later... Claude Code decided to crash the party and said: *"Hold my digital coffee ☕, I'll show you what REAL cyberpunk looks like!"*
 
 What began as a humble Pong clone with ChatGPT has now evolved into a full-blown neon-soaked, particle-exploding, screen-shaking, combo-counting CYBERBALL EXPERIENCE! 
 
-**ChatGPT (2022):** "Here's a simple paddle game with basic physics..."  
+**ChatGPT (2023):** "Here's a simple paddle game with basic physics..."  
 **Claude (2025):** "Here's your paddle game with EXTREME AI, power-ups, spin mechanics, statistics tracking, and enough particle effects to crash a graphics card! Also, it's cyberpunk now. You're welcome." 😎
 
 ## What's New (Thanks Claude!)
@@ -71,7 +71,7 @@ python main.py
 
 ## The AI Evolution Story
 
-**2022 ChatGPT Version:** Simple, clean, basic Pong  
+**2023 ChatGPT Version:** Simple, clean, basic Pong  
 **2025 Claude Enhancement:** "What if we made it CYBERPUNK and ADDED EVERYTHING?"
 
 ## TODO 
@@ -85,7 +85,7 @@ python main.py
 
 ## Credits
 
-**Original Concept:** ChatGPT (2022) - Created a humble Pong game  
+**Original Concept:** ChatGPT (2023) - Created a humble Pong game  
 **Cyberpunk Evolution:** Claude Code (2025) - "I turned your Pong into CYBERBALL 2084!"  
 **Human Supervision:** gyupro89 - "Just wanted a simple game... got a cyberpunk experience instead"
 
