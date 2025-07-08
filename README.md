@@ -47,10 +47,11 @@ The blue paddle still moves (but now it can SHOOT LASERS), and you still control
 This is 2023 ChatGPT
 ![image](https://github.com/gyupro/Cyberball_2084/assets/79894531/2c018c99-8579-4965-a715-4d9b5cfea803)
 
-This is 2025 Claude
+This is 2025 Claude v1
 ![image](https://github.com/user-attachments/assets/1e12ddb3-4a05-476a-831c-92e588fe0b62)
 
-
+This is 2025 Claude v2
+![image](https://github.com/user-attachments/assets/c3bbade8-4ee8-4369-ae3b-febbc047fa85)
 
 
 # Installation
