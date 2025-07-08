@@ -5,9 +5,14 @@ import math
 from pygame.locals import QUIT, KEYDOWN, K_UP, K_DOWN, K_r, K_ESCAPE, K_SPACE, K_1, K_2, K_3, K_4
 
 pygame.init()
-pygame.mixer.init(frequency=22050, size=-16, channels=2, buffer=512)
+try:
+    pygame.mixer.init(frequency=22050, size=-16, channels=2, buffer=512)
+except pygame.error:
+    print("Warning: Audio initialization failed. Running without sound.")
+    SOUND_ENABLED = False
 
 # Constants
+SOUND_ENABLED = True
 SCREEN_WIDTH = 1024
 SCREEN_HEIGHT = 768
 PADDLE_SPEED = 8
@@ -18,6 +23,7 @@ BALL_SIZE = 24
 SPEED_INCREMENT = 0.3
 MAX_BALL_SPEED = 15
 PARTICLE_COUNT = 50
+MAX_PARTICLES = 500
 POWERUP_SPAWN_CHANCE = 0.005
 POWERUP_SIZE = 30
 POWERUP_DURATION = 300  # frames
@@ -61,6 +67,13 @@ score_flash = {'left': 0, 'right': 0}
 combo_counter = 0
 last_hit_time = 0
 sounds = {}
+score_multiplier = 1.0
+consecutive_hits = 0
+shield_active = {'left': False, 'right': False}
+gravity_wells = []
+time_slow_factor = 1.0
+lasers = []
+laser_cooldown = {'left': 0, 'right': 0}
 
 # Sound system
 def init_sounds():
@@ -171,7 +184,11 @@ class PowerUp:
         colors = {
             'speed': POWERUP_GOLD,
             'size': POWERUP_RED,
-            'multi': POWERUP_BLUE
+            'multi': POWERUP_BLUE,
+            'shield': NEON_GREEN,
+            'gravity': ELECTRIC_PURPLE,
+            'slow_time': CYBER_BLUE,
+            'laser': NEON_PINK
         }
         color = colors.get(self.type, POWERUP_GOLD)
         
@@ -191,6 +208,89 @@ class PowerUp:
         elif self.type == 'multi':
             pygame.draw.circle(screen, BLACK, (self.x - 4, self.y), 3)
             pygame.draw.circle(screen, BLACK, (self.x + 4, self.y), 3)
+        elif self.type == 'shield':
+            # Draw shield icon
+            pygame.draw.polygon(screen, BLACK, [
+                (self.x, self.y - 8), (self.x - 6, self.y - 4),
+                (self.x - 6, self.y + 4), (self.x, self.y + 8),
+                (self.x + 6, self.y + 4), (self.x + 6, self.y - 4)
+            ])
+        elif self.type == 'gravity':
+            # Draw gravity well
+            pygame.draw.circle(screen, BLACK, (self.x, self.y), 8, 2)
+            pygame.draw.circle(screen, BLACK, (self.x, self.y), 4, 1)
+        elif self.type == 'slow_time':
+            # Draw clock icon
+            pygame.draw.circle(screen, BLACK, (self.x, self.y), 8, 2)
+            pygame.draw.line(screen, BLACK, (self.x, self.y), (self.x, self.y - 5), 2)
+            pygame.draw.line(screen, BLACK, (self.x, self.y), (self.x + 4, self.y), 2)
+        elif self.type == 'laser':
+            # Draw laser beam icon
+            pygame.draw.line(screen, BLACK, (self.x - 8, self.y), (self.x + 8, self.y), 3)
+            for i in range(-6, 7, 3):
+                pygame.draw.line(screen, BLACK, (self.x + i, self.y - 2), (self.x + i, self.y + 2), 1)
+
+class GravityWell:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.strength = 150
+        self.radius = 100
+        self.life = 300
+        self.pulse = 0
+        
+    def update(self):
+        self.life -= 1
+        self.pulse += 0.1
+        return self.life > 0
+        
+    def attract_ball(self, ball):
+        dx = self.x - ball.rect.centerx
+        dy = self.y - ball.rect.centery
+        dist = math.sqrt(dx**2 + dy**2)
+        if dist < self.radius and dist > 10:
+            force = self.strength / (dist**2)
+            ball.speed_x += (dx / dist) * force * 0.1
+            ball.speed_y += (dy / dist) * force * 0.1
+            
+    def draw(self, screen):
+        # Draw gravity effect
+        alpha = int(100 * (self.life / 300))
+        for i in range(3):
+            radius = int(self.radius * (1 - i * 0.3) + 10 * math.sin(self.pulse + i))
+            color = (*ELECTRIC_PURPLE, max(0, alpha - i * 30))
+            s = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
+            pygame.draw.circle(s, color, (radius, radius), radius, 2)
+            screen.blit(s, (self.x - radius, self.y - radius))
+
+class Laser:
+    def __init__(self, x, y, direction):
+        self.x = x
+        self.y = y
+        self.direction = direction  # 'left' or 'right'
+        self.speed = 15
+        self.width = 60
+        self.height = 4
+        self.rect = pygame.Rect(x - self.width//2, y - self.height//2, self.width, self.height)
+        
+    def update(self):
+        if self.direction == 'left':
+            self.x -= self.speed
+        else:
+            self.x += self.speed
+        self.rect.x = self.x - self.width//2
+        return 0 < self.x < SCREEN_WIDTH
+        
+    def draw(self, screen):
+        # Draw laser beam with glow
+        color = NEON_PINK if self.direction == 'right' else CYBER_BLUE
+        draw_glow_rect(screen, color, self.rect, 8)
+        pygame.draw.rect(screen, BRIGHT_WHITE, self.rect)
+        # Add energy effect
+        for i in range(0, self.width, 4):
+            spark_x = self.rect.x + i
+            spark_y = self.rect.centery + random.randint(-2, 2)
+            pygame.draw.circle(screen, color, (spark_x, spark_y), 1)
 
 class Ball:
     def __init__(self, x, y, speed_x, speed_y):
@@ -201,12 +301,13 @@ class Ball:
         self.trail = []
         
     def update(self):
+        global time_slow_factor
         # Apply spin to movement
-        self.speed_y += self.spin * 0.1
+        self.speed_y += self.spin * 0.1 * time_slow_factor
         
         # Update position
-        self.rect.x += self.speed_x
-        self.rect.y += self.speed_y
+        self.rect.x += self.speed_x * time_slow_factor
+        self.rect.y += self.speed_y * time_slow_factor
         
         # Update trail
         self.trail.append((self.rect.centerx, self.rect.centery))
@@ -243,6 +344,10 @@ class Ball:
         pygame.draw.circle(screen, BRIGHT_WHITE, self.rect.center, BALL_SIZE//2)
 
 def create_particles(x, y, color, count=10):
+    # Limit total particles to prevent memory issues
+    if len(particles) + count > MAX_PARTICLES:
+        # Remove oldest particles
+        particles[:count] = []
     for _ in range(count):
         particles.append(Particle(x, y, color))
 
@@ -250,7 +355,7 @@ def spawn_powerup():
     if random.random() < POWERUP_SPAWN_CHANCE:
         x = random.randint(SCREEN_WIDTH // 4, 3 * SCREEN_WIDTH // 4)
         y = random.randint(POWERUP_SIZE, SCREEN_HEIGHT - POWERUP_SIZE)
-        powerup_type = random.choice(['speed', 'size', 'multi'])
+        powerup_type = random.choice(['speed', 'size', 'multi', 'shield', 'gravity', 'slow_time', 'laser'])
         powerups.append(PowerUp(x, y, powerup_type))
 
 def apply_powerup(powerup_type):
@@ -260,17 +365,35 @@ def apply_powerup(powerup_type):
     create_particles(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2, POWERUP_GOLD, 20)
 
 def update_powerups():
-    global active_powerups, left_paddle, right_paddle
+    global active_powerups, left_paddle, right_paddle, shield_active, time_slow_factor
     for powerup in active_powerups[:]:
         powerup['duration'] -= 1
         if powerup['duration'] <= 0:
             active_powerups.remove(powerup)
             # Reset paddle sizes
             if powerup['type'] == 'size':
+                # Store center position before resizing
+                left_center = left_paddle.centery
+                right_center = right_paddle.centery
+                # Reset sizes
                 left_paddle.height = PADDLE_HEIGHT
                 right_paddle.height = PADDLE_HEIGHT
-                left_paddle.y = SCREEN_HEIGHT // 2 - PADDLE_HEIGHT // 2
-                right_paddle.y = SCREEN_HEIGHT // 2 - PADDLE_HEIGHT // 2
+                # Restore center position
+                left_paddle.centery = left_center
+                right_paddle.centery = right_center
+                # Keep paddles in bounds
+                if left_paddle.top < 0:
+                    left_paddle.top = 0
+                if left_paddle.bottom > SCREEN_HEIGHT:
+                    left_paddle.bottom = SCREEN_HEIGHT
+                if right_paddle.top < 0:
+                    right_paddle.top = 0
+                if right_paddle.bottom > SCREEN_HEIGHT:
+                    right_paddle.bottom = SCREEN_HEIGHT
+            elif powerup['type'] == 'shield':
+                shield_active['right'] = False
+            elif powerup['type'] == 'slow_time':
+                time_slow_factor = 1.0
 
 def apply_screen_shake():
     global screen_shake
@@ -290,14 +413,29 @@ def create_menu_particles():
         menu_particles.append(Particle(x, y, color))
 
 def update_combo_system():
-    global combo_counter, last_hit_time
+    global combo_counter, last_hit_time, score_multiplier, consecutive_hits
     current_time = pygame.time.get_ticks()
     if current_time - last_hit_time > 2000:  # Reset combo after 2 seconds
         combo_counter = 0
+        consecutive_hits = 0
+        score_multiplier = 1.0
+    else:
+        # Calculate score multiplier based on combo
+        if combo_counter >= 10:
+            score_multiplier = 3.0
+        elif combo_counter >= 5:
+            score_multiplier = 2.0
+        elif combo_counter >= 3:
+            score_multiplier = 1.5
+        else:
+            score_multiplier = 1.0
 
 def create_impact_particles(x, y, color, intensity=1):
     count = int(15 * intensity)
     spread = int(50 * intensity)
+    # Limit total particles
+    if len(particles) + count > MAX_PARTICLES:
+        particles[:count] = []
     for _ in range(count):
         particle = Particle(x, y, color)
         particle.vx = random.uniform(-spread/10, spread/10)
@@ -309,6 +447,7 @@ def create_impact_particles(x, y, color, intensity=1):
 
 def reset_game():
     global ball, BALL_SPEED, particles, trail_points, powerups, active_powerups, multi_balls
+    global gravity_wells, lasers, shield_active, time_slow_factor
     # Reset ball
     speed = random.uniform(6, 8)
     angle = random.uniform(-math.pi/4, math.pi/4)
@@ -323,6 +462,13 @@ def reset_game():
     trail_points.clear()
     powerups.clear()
     multi_balls.clear()
+    gravity_wells.clear()
+    lasers.clear()
+    
+    # Reset powerup states
+    shield_active['left'] = False
+    shield_active['right'] = False
+    time_slow_factor = 1.0
     
     # Reset paddle sizes if needed
     global left_paddle, right_paddle
@@ -336,18 +482,21 @@ def reset_game():
 def move_left_paddle():
     global ai_speed_multiplier
     # Smarter AI based on difficulty
-    target_y = ball.centery if isinstance(ball, pygame.Rect) else ball.rect.centery
+    if isinstance(ball, Ball):
+        target_y = ball.rect.centery
+    else:
+        target_y = ball.centery
     paddle_center = left_paddle.centery
     
     # Enhanced AI for different difficulties
     if difficulty == "extreme":
         # Perfect prediction with adaptive strategies
         if isinstance(ball, Ball):
-            if ball.speed_x < 0:  # Ball moving towards AI
+            if ball.speed_x < 0 and abs(ball.speed_x) > 0.1:  # Ball moving towards AI
                 time_to_reach = abs(ball.rect.centerx - left_paddle.centerx) / abs(ball.speed_x)
                 predicted_y = ball.rect.centery + (ball.speed_y + ball.spin * 0.1) * time_to_reach
                 target_y = predicted_y
-        elif BALL_SPEED[0] < 0:
+        elif BALL_SPEED[0] < 0 and abs(BALL_SPEED[0]) > 0.1:
             time_to_reach = abs(ball.centerx - left_paddle.centerx) / abs(BALL_SPEED[0])
             predicted_y = ball.centery + BALL_SPEED[1] * time_to_reach
             target_y = predicted_y
@@ -357,11 +506,11 @@ def move_left_paddle():
             target_y += random.uniform(-20, 20)
     elif difficulty == "hard":
         if isinstance(ball, Ball):
-            if ball.speed_x < 0:
+            if ball.speed_x < 0 and abs(ball.speed_x) > 0.1:
                 time_to_reach = abs(ball.rect.centerx - left_paddle.centerx) / abs(ball.speed_x)
                 predicted_y = ball.rect.centery + ball.speed_y * time_to_reach
                 target_y = predicted_y
-        elif BALL_SPEED[0] < 0:
+        elif BALL_SPEED[0] < 0 and abs(BALL_SPEED[0]) > 0.1:
             time_to_reach = abs(ball.centerx - left_paddle.centerx) / abs(BALL_SPEED[0])
             predicted_y = ball.centery + BALL_SPEED[1] * time_to_reach
             target_y = predicted_y
@@ -556,6 +705,28 @@ while True:
         update_powerups()
         update_combo_system()
         
+        # Update gravity wells
+        gravity_wells[:] = [gw for gw in gravity_wells if gw.update()]
+        for gw in gravity_wells:
+            gw.attract_ball(ball)
+            for mb in multi_balls:
+                gw.attract_ball(mb)
+        
+        # Update lasers
+        lasers[:] = [laser for laser in lasers if laser.update()]
+        
+        # Update laser cooldowns
+        if laser_cooldown['left'] > 0:
+            laser_cooldown['left'] -= 1
+        if laser_cooldown['right'] > 0:
+            laser_cooldown['right'] -= 1
+        
+        # Fire lasers with keyboard
+        if keys[K_SPACE] and laser_cooldown['right'] == 0 and 'laser' in [p['type'] for p in active_powerups]:
+            lasers.append(Laser(right_paddle.centerx - 20, right_paddle.centery, 'left'))
+            laser_cooldown['right'] = 30
+            play_sound('powerup')
+        
         # Update ball
         ball.update()
         
@@ -599,6 +770,17 @@ while True:
                     play_sound('paddle_hit')
                     update_stats()
             
+            # Shield collision detection
+            if shield_active['left'] and ball_obj.speed_x < 0 and ball_obj.rect.left <= left_paddle.right + 20:
+                ball_obj.speed_x = abs(ball_obj.speed_x)
+                create_impact_particles(left_paddle.right + 10, ball_obj.rect.centery, NEON_GREEN, 2.0)
+                play_sound('paddle_hit')
+            
+            if shield_active['right'] and ball_obj.speed_x > 0 and ball_obj.rect.right >= right_paddle.left - 20:
+                ball_obj.speed_x = -abs(ball_obj.speed_x)
+                create_impact_particles(right_paddle.left - 10, ball_obj.rect.centery, NEON_GREEN, 2.0)
+                play_sound('paddle_hit')
+            
             # Limit ball speed
             if abs(ball_obj.speed_x) > MAX_BALL_SPEED:
                 ball_obj.speed_x = MAX_BALL_SPEED if ball_obj.speed_x > 0 else -MAX_BALL_SPEED
@@ -608,6 +790,26 @@ while True:
         handle_ball_collision(ball)
         for mb in multi_balls:
             handle_ball_collision(mb)
+        
+        # Laser-ball collision
+        for laser in lasers[:]:
+            if laser.rect.colliderect(ball.rect):
+                # Deflect ball
+                ball.speed_x = -abs(ball.speed_x) if laser.direction == 'right' else abs(ball.speed_x)
+                ball.speed_y += random.uniform(-3, 3)
+                lasers.remove(laser)
+                create_impact_particles(ball.rect.centerx, ball.rect.centery, BRIGHT_WHITE, 2.0)
+                screen_shake = SCREEN_SHAKE_DURATION
+                play_sound('paddle_hit')
+            else:
+                # Check multi-balls
+                for mb in multi_balls[:]:
+                    if laser.rect.colliderect(mb.rect):
+                        multi_balls.remove(mb)
+                        lasers.remove(laser)
+                        create_impact_particles(mb.rect.centerx, mb.rect.centery, BRIGHT_WHITE, 1.5)
+                        play_sound('paddle_hit')
+                        break
         
         # Check powerup collisions
         for powerup in powerups[:]:
@@ -630,23 +832,52 @@ while True:
                         speed = random.uniform(6, 9)
                         multi_balls.append(Ball(ball.rect.centerx, ball.rect.centery,
                                               speed * math.cos(angle), speed * math.sin(angle)))
+                elif powerup.type == 'shield':
+                    shield_active['right'] = True
+                elif powerup.type == 'gravity':
+                    # Create gravity well at center
+                    gravity_wells.append(GravityWell(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+                elif powerup.type == 'slow_time':
+                    time_slow_factor = 0.3
+                elif powerup.type == 'laser':
+                    laser_cooldown['right'] = 0  # Reset cooldown to allow immediate shot
         
         # Scoring with enhanced effects
         if ball.rect.left <= 0:
-            right_score += 1
+            # Apply score multiplier
+            points_earned = int(1 * score_multiplier)
+            right_score += points_earned
             score_flash['right'] = 30
             create_impact_particles(ball.rect.centerx, ball.rect.centery, NEON_GREEN, 3.0)
             screen_shake = SCREEN_SHAKE_DURATION * 2
+            
+            # Show bonus points if multiplier active
+            if score_multiplier > 1:
+                bonus_particles = int(20 * score_multiplier)
+                create_particles(SCREEN_WIDTH - 100, 100, POWERUP_GOLD, bonus_particles)
+            
             combo_counter = 0
+            consecutive_hits = 0
+            score_multiplier = 1.0
             play_sound('score')
             end_game_stats()
             reset_game()
         elif ball.rect.right >= SCREEN_WIDTH:
-            left_score += 1
+            # Apply score multiplier
+            points_earned = int(1 * score_multiplier)
+            left_score += points_earned
             score_flash['left'] = 30
             create_impact_particles(ball.rect.centerx, ball.rect.centery, NEON_GREEN, 3.0)
             screen_shake = SCREEN_SHAKE_DURATION * 2
+            
+            # Show bonus points if multiplier active
+            if score_multiplier > 1:
+                bonus_particles = int(20 * score_multiplier)
+                create_particles(100, 100, POWERUP_GOLD, bonus_particles)
+            
             combo_counter = 0
+            consecutive_hits = 0
+            score_multiplier = 1.0
             play_sound('score')
             end_game_stats()
             reset_game()
@@ -687,6 +918,10 @@ while True:
         for powerup in powerups:
             powerup.draw(screen)
         
+        # Draw gravity wells
+        for gw in gravity_wells:
+            gw.draw(screen)
+        
         # Apply screen shake offset to all drawing
         screen_offset = (shake_x, shake_y)
         
@@ -699,12 +934,29 @@ while True:
         draw_glow_rect(screen, NEON_PINK, right_paddle_shaken, 3)
         pygame.draw.rect(screen, NEON_PINK, right_paddle_shaken)
         
+        # Draw shields if active
+        if shield_active['left']:
+            shield_x = left_paddle.right + 10
+            shield_rect = pygame.Rect(shield_x - 2, left_paddle.top - 10, 4, left_paddle.height + 20)
+            draw_glow_rect(screen, NEON_GREEN, shield_rect, 10)
+            pygame.draw.rect(screen, NEON_GREEN, shield_rect)
+        
+        if shield_active['right']:
+            shield_x = right_paddle.left - 10
+            shield_rect = pygame.Rect(shield_x - 2, right_paddle.top - 10, 4, right_paddle.height + 20)
+            draw_glow_rect(screen, NEON_GREEN, shield_rect, 10)
+            pygame.draw.rect(screen, NEON_GREEN, shield_rect)
+        
         # Draw main ball
         ball.draw(screen)
         
         # Draw multi-balls
         for mb in multi_balls:
             mb.draw(screen)
+        
+        # Draw lasers
+        for laser in lasers:
+            laser.draw(screen)
         
         # Draw particles
         for particle in particles:
@@ -735,12 +987,19 @@ while True:
         score_text = score_font.render(f"{right_score}", True, right_color)
         screen.blit(score_text, (3 * SCREEN_WIDTH // 4 - score_text.get_width() // 2 + shake_x, 30 + shake_y))
         
-        # Display combo counter
+        # Display combo counter and multiplier
         if combo_counter > 1:
             combo_text = ui_font.render(f"COMBO x{combo_counter}!", True, POWERUP_GOLD)
             combo_x = SCREEN_WIDTH // 2 - combo_text.get_width() // 2
             combo_y = 80 + int(5 * math.sin(pygame.time.get_ticks() * 0.01))
             screen.blit(combo_text, (combo_x + shake_x, combo_y + shake_y))
+            
+            # Show score multiplier
+            if score_multiplier > 1:
+                mult_text = ui_font.render(f"SCORE x{score_multiplier:.1f}", True, NEON_GREEN)
+                mult_x = SCREEN_WIDTH // 2 - mult_text.get_width() // 2
+                mult_y = combo_y + 30
+                screen.blit(mult_text, (mult_x + shake_x, mult_y + shake_y))
         
         # Game info with powerup status
         speed_display = abs(ball.speed_x) if hasattr(ball, 'speed_x') else 7.0
