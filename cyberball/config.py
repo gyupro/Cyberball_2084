@@ -54,3 +54,27 @@ AI_SPEED_MULTIPLIER = {
 import os
 SAVE_DIR = os.path.join(os.path.expanduser("~"), ".cyberball2084")
 SAVE_FILE = os.path.join(SAVE_DIR, "save.json")
+
+# Match rules
+MATCH_POINT_LIMIT = 11
+BOSS_TRIGGER_INTERVAL = 5
+
+# Boss defaults
+BOSS_TITAN_HP = 5
+BOSS_BARRAGE_HP = 3
+BOSS_SPLIT_HP = 2  # per sub-paddle
+BOSS_ROTATION = ['titan', 'barrage', 'split']
+BOSS_POWERUP_SPAWN_MULTIPLIER = 2.0
+
+# Screen effects
+SCREEN_FLASH_MS = 150
+SLOWMO_FACTOR = 0.3
+SLOWMO_MS = 150
+BOSS_BANNER_MS = 500
+BOSS_DEFEAT_SLOWMO_MS = 2000
+
+# Palette semantic aliases
+GOLD = POWERUP_GOLD
+ALERT_RED = (220, 40, 40)
+VOID_BLACK = BLACK
+ACID_GREEN = NEON_GREEN
