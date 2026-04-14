@@ -12,6 +12,33 @@ What began as a humble Pong clone with ChatGPT has now evolved into a full-blown
 **Claude (2025 v1):** "Here's your paddle game with EXTREME AI, power-ups, and cyberpunk aesthetics!"  
 **Claude (2025 v2):** "THAT WASN'T ENOUGH! Here's 7 POWER-UPS, COMBO MULTIPLIERS, LASER WEAPONS, AND GRAVITY WELLS! 🚀" 
 
+## 🆕 What's New in v4 (BOSS BATTLES + UI/UX OVERHAUL)
+
+### 👹 3-Boss Rotation
+Every **5 player points**, the AI paddle is replaced by a boss. Defeat it to advance; lose a point and the same boss returns next round.
+
+| Boss | HP | Size | Ability |
+|------|----|----|---------|
+| **Titan** | 5 | 2.5× tall | Slow tank |
+| **Barrage** | 3 | Normal | Fires 2 projectiles every 2s |
+| **Split** | 2+2 | Two half-height paddles | Independent HP each |
+
+**Boss defeat reward:** score bonus + random powerup auto-activated for 3 seconds. Stats track kills per boss type.
+
+### 🖥️ UI/UX Upgrades
+- **Main menu**: animated auto-rally demo background + `O` key opens the Settings screen
+- **Settings screen**: adjust volume, colorblind palette, 1P/2P mode, slow-mo FX, shake intensity (persisted)
+- **Game over screen**: first to 11 points wins; match summary card with combo, boss kills, powerups, play time
+- **Screen effects**: score flash, slow-mo, boss-incoming banner, red vignette during boss fights
+- **Boss HP bar**: top-center during encounters
+
+### 🔧 Architecture
+- New modules: `entities/boss.py`, `systems/boss_manager.py`, `ui/effects.ScreenEffect`, `ui/gameover.py`, `ui/settings.py`, `ui/typography.py`, `ui/backgrounds.py`
+- Save schema extended with `boss_kills` and `settings` (backward compatible)
+- Test suite grew to 44 tests
+
+---
+
 ## 🎮 What's New in v2 (ULTRA ENHANCED!)
 
 ### 🌟 NEW POWER-UPS (7 TOTAL!)
