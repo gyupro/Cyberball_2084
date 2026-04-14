@@ -10,12 +10,19 @@ from .config import (
     PADDLE_WIDTH, PADDLE_SPEED, POWERUP_DURATION, POWERUP_SPAWN_CHANCE, POWERUP_SIZE,
     POWERUP_TYPES, SCREEN_SHAKE_DURATION, SCREEN_SHAKE_INTENSITY, MAX_PARTICLES,
     DIFFICULTIES, SPEED_INCREMENT,
+    MATCH_POINT_LIMIT, BOSS_POWERUP_SPAWN_MULTIPLIER,
+    SCREEN_FLASH_MS, SLOWMO_FACTOR, SLOWMO_MS,
+    BOSS_BANNER_MS, BOSS_DEFEAT_SLOWMO_MS, ALERT_RED,
 )
 from .entities import Ball, Paddle, PowerUp, GravityWell, Laser, Particle
+from .entities.boss import Split
 from .systems import AudioSystem, StatsManager, move_ai_paddle
-from .ui.effects import draw_glow_rect, draw_glow_circle
+from .systems.boss_manager import BossManager
+from .ui.effects import draw_glow_rect, draw_glow_circle, ScreenEffect
 from .ui.menu import MenuRenderer
-from .ui.hud import HUD
+from .ui.hud import HUD, draw_boss_hp_bar
+from .ui.gameover import MatchStats, draw_game_over
+from .ui.settings import SettingsScreen
 
 
 class GameState:
@@ -53,6 +60,15 @@ class GameState:
         self.last_hit_time = 0
         self.score_multiplier = 1.0
 
+        # v4: boss + UI upgrades
+        self.boss_manager = BossManager(boss_x=0)  # AI is on the left (x=0)
+        self.boss_projectiles = []
+        self.screen_effect = ScreenEffect()
+        self.match_stats = MatchStats()
+        self.match_stats.start(0)
+        self.game_over_winner = None
+        self.settings_screen = None
+
     def _new_ball(self):
         angle = random.uniform(-math.pi / 4, math.pi / 4)
         if random.choice([True, False]):
@@ -80,6 +96,12 @@ class GameState:
         self.right_score = 0
         self.combo_counter = 0
         self.score_multiplier = 1.0
+        self.boss_manager = BossManager(boss_x=0)
+        self.boss_projectiles.clear()
+        self.screen_effect = ScreenEffect()
+        self.match_stats = MatchStats()
+        self.match_stats.start(pygame.time.get_ticks())
+        self.game_over_winner = None
         self.reset_round()
 
     # Particle helpers
@@ -138,7 +160,10 @@ def _handle_paddle_hit(state, ball_obj, paddle, color):
 
 
 def _spawn_powerup(state):
-    if random.random() < POWERUP_SPAWN_CHANCE:
+    chance = POWERUP_SPAWN_CHANCE
+    if state.boss_manager.active:
+        chance *= BOSS_POWERUP_SPAWN_MULTIPLIER
+    if random.random() < chance:
         x = random.randint(SCREEN_WIDTH // 4, 3 * SCREEN_WIDTH // 4)
         y = random.randint(POWERUP_SIZE, SCREEN_HEIGHT - POWERUP_SIZE)
         t = random.choice(POWERUP_TYPES)
@@ -150,6 +175,7 @@ def _apply_powerup(state, p_type):
     state.screen_shake = max(state.screen_shake, SCREEN_SHAKE_DURATION)
     state._spawn_particles(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2, POWERUP_GOLD, 20)
     state.stats.record_powerup()
+    state.match_stats.record_powerup()
 
     if p_type == 'speed':
         state.ball.speed_x *= 1.3
@@ -198,10 +224,41 @@ def _update_combo(state):
         state.score_multiplier = 3.0 if c >= 10 else 2.0 if c >= 5 else 1.5 if c >= 3 else 1.0
 
 
+def _handle_ball_vs_boss(state, ball_obj):
+    """Returns True if the ball hit the boss this frame."""
+    boss = state.boss_manager.current_boss
+    if boss is None or ball_obj.speed_x >= 0:
+        return False
+    hit = False
+    if isinstance(boss, Split):
+        for i, seg in enumerate(boss.segments):
+            if seg.hp > 0 and ball_obj.rect.colliderect(seg.rect):
+                ball_obj.speed_x = abs(ball_obj.speed_x) + SPEED_INCREMENT
+                ball_obj.rect.left = seg.rect.right + 1
+                boss.take_damage_at(i)
+                state.spawn_impact(ball_obj.rect.centerx, ball_obj.rect.centery, ALERT_RED, 2.0)
+                state.audio.play('paddle_hit')
+                hit = True
+                break
+    else:
+        if ball_obj.rect.colliderect(boss.rect):
+            ball_obj.speed_x = abs(ball_obj.speed_x) + SPEED_INCREMENT
+            ball_obj.rect.left = boss.rect.right + 1
+            boss.take_damage()
+            state.spawn_impact(ball_obj.rect.centerx, ball_obj.rect.centery, ALERT_RED, 2.0)
+            state.audio.play('paddle_hit')
+            hit = True
+    ball_obj.clamp_speed()
+    return hit
+
+
 def _handle_ball_vs_paddles(state, ball_obj):
-    if ball_obj.rect.colliderect(state.left_paddle.rect) and ball_obj.speed_x < 0:
+    # If boss active, left paddle is replaced by boss for collision
+    if state.boss_manager.active:
+        _handle_ball_vs_boss(state, ball_obj)
+    elif ball_obj.rect.colliderect(state.left_paddle.rect) and ball_obj.speed_x < 0:
         _handle_paddle_hit(state, ball_obj, state.left_paddle, CYBER_BLUE)
-    elif ball_obj.rect.colliderect(state.right_paddle.rect) and ball_obj.speed_x > 0:
+    if ball_obj.rect.colliderect(state.right_paddle.rect) and ball_obj.speed_x > 0:
         _handle_paddle_hit(state, ball_obj, state.right_paddle, NEON_PINK)
 
     # Shields
@@ -222,30 +279,64 @@ def _handle_ball_vs_paddles(state, ball_obj):
 def _handle_scoring(state):
     """Returns True if a score happened this frame."""
     if state.ball.rect.left <= 0:
+        # Player (right) scored
         pts = int(1 * state.score_multiplier)
         state.right_score += pts
         state.score_flash['right'] = 30
         state.spawn_impact(state.ball.rect.centerx, state.ball.rect.centery, NEON_GREEN, 3.0)
         state.screen_shake = SCREEN_SHAKE_DURATION * 2
+        state.screen_effect.flash(BRIGHT_WHITE, SCREEN_FLASH_MS)
+        state.screen_effect.slowmo(SLOWMO_FACTOR, SLOWMO_MS)
         state.combo_counter = 0
         state.score_multiplier = 1.0
         state.audio.play('score')
-        _maybe_save_high(state)
-        state.reset_round()
+        _check_boss_trigger(state)
+        _check_match_end(state)
+        if state.state != "gameover":
+            state.reset_round()
         return True
     elif state.ball.rect.right >= SCREEN_WIDTH:
+        # AI/boss scored on player
         pts = int(1 * state.score_multiplier)
         state.left_score += pts
         state.score_flash['left'] = 30
         state.spawn_impact(state.ball.rect.centerx, state.ball.rect.centery, NEON_GREEN, 3.0)
         state.screen_shake = SCREEN_SHAKE_DURATION * 2
+        state.screen_effect.flash((255, 60, 60), SCREEN_FLASH_MS)
+        state.screen_effect.slowmo(SLOWMO_FACTOR, SLOWMO_MS)
         state.combo_counter = 0
         state.score_multiplier = 1.0
         state.audio.play('score')
-        _maybe_save_high(state)
-        state.reset_round()
+        if state.boss_manager.active:
+            state.boss_manager.on_player_lost_point()
+            state.boss_projectiles.clear()
+            state.screen_effect.clear_vignette()
+        _check_match_end(state)
+        if state.state != "gameover":
+            state.reset_round()
         return True
     return False
+
+
+def _check_boss_trigger(state):
+    boss = state.boss_manager.on_player_score(state.right_score)
+    if boss is not None:
+        state.screen_effect.banner("BOSS INCOMING", BOSS_BANNER_MS)
+        state.screen_effect.vignette(ALERT_RED, 0.3)
+
+
+def _check_match_end(state):
+    if state.right_score >= MATCH_POINT_LIMIT:
+        _finish_match(state, winner="PLAYER")
+    elif state.left_score >= MATCH_POINT_LIMIT:
+        _finish_match(state, winner="AI")
+
+
+def _finish_match(state, winner):
+    state.game_over_winner = winner
+    state.state = "gameover"
+    state.match_stats.stop(pygame.time.get_ticks())
+    _maybe_save_high(state)
 
 
 def _maybe_save_high(state):
@@ -292,11 +383,12 @@ def _draw_playfield(surface, state, shake):
     for gw in state.gravity_wells:
         gw.draw(surface)
 
-    # Paddles
-    lp = state.left_paddle.rect.move(sx, sy)
+    # Paddles (left hidden during boss fight)
     rp = state.right_paddle.rect.move(sx, sy)
-    draw_glow_rect(surface, CYBER_BLUE, lp, 3)
-    pygame.draw.rect(surface, CYBER_BLUE, lp)
+    if not state.boss_manager.active:
+        lp = state.left_paddle.rect.move(sx, sy)
+        draw_glow_rect(surface, CYBER_BLUE, lp, 3)
+        pygame.draw.rect(surface, CYBER_BLUE, lp)
     draw_glow_rect(surface, NEON_PINK, rp, 3)
     pygame.draw.rect(surface, NEON_PINK, rp)
 
@@ -328,6 +420,32 @@ def _draw_playfield(surface, state, shake):
         laser.draw(surface)
     for p in state.particles:
         p.draw(surface)
+
+
+def _draw_boss(surface, state, shake):
+    if not state.boss_manager.active:
+        return
+    sx, sy = shake
+    boss = state.boss_manager.current_boss
+    if isinstance(boss, Split):
+        for seg in boss.segments:
+            if seg.hp <= 0:
+                continue
+            r = seg.rect.move(sx, sy)
+            draw_glow_rect(surface, ALERT_RED, r, 4)
+            pygame.draw.rect(surface, ALERT_RED, r)
+    else:
+        r = boss.rect.move(sx, sy)
+        draw_glow_rect(surface, ALERT_RED, r, 4)
+        pygame.draw.rect(surface, ALERT_RED, r)
+
+
+def _draw_boss_projectiles(surface, state, shake):
+    sx, sy = shake
+    for p in state.boss_projectiles:
+        r = p.rect.move(sx, sy)
+        draw_glow_rect(surface, ALERT_RED, r, 6)
+        pygame.draw.rect(surface, ALERT_RED, r)
 
 
 class Game:
@@ -379,8 +497,14 @@ class Game:
                 self.audio.set_volume(self.audio.volume - 0.1)
             elif k == pygame.K_b:
                 self.audio.set_volume(self.audio.volume + 0.1)
+            elif k == pygame.K_o:
+                s.settings_screen = SettingsScreen(s.stats)
+                s.state = "settings"
             elif k == pygame.K_ESCAPE:
                 self._shutdown()
+        elif s.state == "settings":
+            if s.settings_screen and s.settings_screen.handle_key(k):
+                s.state = "menu"
         elif s.state == "playing":
             if k == pygame.K_p:
                 s.state = "paused"
@@ -395,6 +519,12 @@ class Game:
                                           s.right_paddle.rect.centery, 'left'))
                     s.laser_cooldown['right'] = 30
                     self.audio.play('powerup')
+        elif s.state == "gameover":
+            if k == pygame.K_r:
+                s.reset_match()
+                s.state = "playing"
+            elif k == pygame.K_ESCAPE:
+                s.state = "menu"
         elif s.state == "paused":
             if k in (pygame.K_p, pygame.K_SPACE):
                 s.state = "playing"
@@ -420,20 +550,42 @@ class Game:
         s = self.state
         keys = pygame.key.get_pressed()
 
+        # Tick screen effects (approx dt from clock)
+        dt_ms = max(1, self.clock.get_time() or 16)
+        s.screen_effect.tick(dt_ms)
+
         # Right paddle: player 1
         if keys[pygame.K_UP]:
             s.right_paddle.move(-PADDLE_SPEED)
         if keys[pygame.K_DOWN]:
             s.right_paddle.move(PADDLE_SPEED)
 
-        # Left paddle: player 2 (WASD) or AI
-        if s.mode == "2p":
+        # Boss or AI or Player 2 controls the left side
+        if s.boss_manager.active:
+            new_proj = s.boss_manager.current_boss.update(target_y=s.ball.rect.centery)
+            room = max(0, 4 - len(s.boss_projectiles))
+            s.boss_projectiles.extend(new_proj[:room])
+        elif s.mode == "2p":
             if keys[pygame.K_w]:
                 s.left_paddle.move(-PADDLE_SPEED)
             if keys[pygame.K_s]:
                 s.left_paddle.move(PADDLE_SPEED)
         else:
             move_ai_paddle(s.left_paddle, s.ball, s.difficulty)
+
+        # Boss projectiles
+        alive = []
+        for p in s.boss_projectiles:
+            p.update()
+            if p.rect.right < 0 or p.rect.left > SCREEN_WIDTH:
+                continue
+            if p.rect.colliderect(s.right_paddle.rect):
+                s.combo_counter = 0
+                s.score_multiplier = 1.0
+                s.spawn_impact(p.rect.centerx, p.rect.centery, ALERT_RED, 1.0)
+                continue
+            alive.append(p)
+        s.boss_projectiles = alive[:4]
 
         _spawn_powerup(s)
         for p in s.powerups:
@@ -464,9 +616,26 @@ class Game:
             if mb.rect.left <= 0 or mb.rect.right >= SCREEN_WIDTH:
                 s.multi_balls.remove(mb)
 
+        prev_combo = s.combo_counter
         _handle_ball_vs_paddles(s, s.ball)
         for mb in s.multi_balls:
             _handle_ball_vs_paddles(s, mb)
+        if s.combo_counter > prev_combo:
+            s.match_stats.record_hit(s.combo_counter)
+
+        # Boss defeat check
+        if s.boss_manager.active and s.boss_manager.current_boss.is_defeated():
+            reward = s.boss_manager.on_boss_defeated()
+            if reward:
+                s.right_score += reward['score_bonus'] // 100  # scale bonus to points
+                s.stats.record_boss_kill(reward['boss_type'])
+                s.match_stats.record_boss_kill()
+                _apply_powerup(s, reward['powerup_type'])
+                s.screen_effect.slowmo(0.4, BOSS_DEFEAT_SLOWMO_MS)
+                s.screen_effect.clear_vignette()
+                s.boss_projectiles.clear()
+                s.spawn_impact(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2, POWERUP_GOLD, 3.0)
+                _check_match_end(s)
 
         # Laser collisions
         for laser in s.lasers[:]:
@@ -503,12 +672,24 @@ class Game:
         s = self.state
         if s.state == "menu":
             self.menu.draw_menu(self.screen, s)
+        elif s.state == "settings":
+            if s.settings_screen:
+                s.settings_screen.draw(self.screen)
         else:
             shake = _screen_shake_offset(s) if s.state == "playing" else (0, 0)
             _draw_playfield(self.screen, s, shake)
+            _draw_boss(self.screen, s, shake)
+            _draw_boss_projectiles(self.screen, s, shake)
             self.hud.draw(self.screen, s, shake)
+            if s.boss_manager.active:
+                draw_boss_hp_bar(self.screen, s.boss_manager.current_boss, self.fonts['ui'])
+            s.screen_effect.render_overlays(self.screen)
             if s.state == "paused":
                 self.menu.draw_pause(self.screen)
+            elif s.state == "gameover":
+                draw_game_over(self.screen, s.game_over_winner,
+                               s.right_score, s.left_score,
+                               s.match_stats, now_ms=pygame.time.get_ticks())
         pygame.display.flip()
 
     # ----- Main loop -----

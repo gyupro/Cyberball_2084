@@ -4,9 +4,35 @@ import pygame
 
 from ..config import (
     SCREEN_WIDTH, SCREEN_HEIGHT, CYBER_BLUE, NEON_PINK, POWERUP_GOLD,
-    NEON_GREEN, DIM_GRAY, POWERUP_DURATION,
+    NEON_GREEN, DIM_GRAY, POWERUP_DURATION, BRIGHT_WHITE, ALERT_RED,
 )
 from ..entities.powerup import COLORS as POWERUP_COLORS, LABELS as POWERUP_LABELS
+
+
+def draw_boss_hp_bar(surface, boss, font):
+    if boss is None:
+        return
+    center_x = SCREEN_WIDTH // 2
+    y = 15
+    name = font.render(f"BOSS: {boss.boss_type.upper()}", True, ALERT_RED)
+    surface.blit(name, name.get_rect(center=(center_x, y)))
+    bar_w = 420
+    bar_h = 16
+    bar_x = center_x - bar_w // 2
+    bar_y = y + 20
+    pygame.draw.rect(surface, (40, 10, 10), (bar_x, bar_y, bar_w, bar_h))
+    if hasattr(boss, 'segments'):
+        total = boss.hp_max
+        seg_w = bar_w // max(1, total)
+        filled = sum(seg.hp for seg in boss.segments)
+        for i in range(filled):
+            pygame.draw.rect(surface, ALERT_RED,
+                             (bar_x + i * seg_w + 1, bar_y + 1, seg_w - 2, bar_h - 2))
+    else:
+        frac = boss.hp / max(1, boss.hp_max)
+        pygame.draw.rect(surface, ALERT_RED,
+                         (bar_x + 1, bar_y + 1, int((bar_w - 2) * frac), bar_h - 2))
+    pygame.draw.rect(surface, BRIGHT_WHITE, (bar_x, bar_y, bar_w, bar_h), 2)
 
 
 class HUD:

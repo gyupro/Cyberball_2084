@@ -9,6 +9,7 @@ from ..config import (
     DIFFICULTIES, POWERUP_GOLD, MENU_ANIMATION_SPEED,
 )
 from ..entities.particle import Particle
+from .backgrounds import MenuDemo
 
 
 class MenuRenderer:
@@ -18,6 +19,7 @@ class MenuRenderer:
         self.ui_font = fonts['ui']
         self.small_font = fonts['small']
         self.particles = []
+        self.demo = MenuDemo()
 
     def _spawn_bg_particle(self):
         if len(self.particles) < 20:
@@ -28,6 +30,8 @@ class MenuRenderer:
 
     def draw_menu(self, surface, state):
         surface.fill(BLACK)
+        self.demo.update()
+        self.demo.draw(surface)
         self._spawn_bg_particle()
         self.particles[:] = [p for p in self.particles if p.update()]
         for p in self.particles:
@@ -51,7 +55,7 @@ class MenuRenderer:
             surface.blit(glow, (tx + off[0], ty + off[1]))
         surface.blit(title, (tx, ty))
 
-        subtitle = self.ui_font.render("NEON WARS — v2.0", True, NEON_PINK)
+        subtitle = self.ui_font.render("NEON WARS — v4.0 (BOSS MODE)", True, NEON_PINK)
         surface.blit(subtitle, (SCREEN_WIDTH // 2 - subtitle.get_width() // 2, ty + 80))
 
         # Main menu
@@ -61,6 +65,7 @@ class MenuRenderer:
             ("M", f"MODE: {state.mode.upper()}  (1P vs AI / 2P local)"),
             ("V / B", f"VOLUME: {int(state.audio.volume * 100)}%"),
             ("C", f"COLORBLIND: {'ON' if state.colorblind else 'OFF'}"),
+            ("O", "SETTINGS"),
             ("ESC", "EXIT"),
         ]
         y = 300
