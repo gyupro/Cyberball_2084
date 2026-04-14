@@ -44,6 +44,24 @@ What began as a humble Pong clone with ChatGPT has now evolved into a full-blown
 
 The blue paddle still moves (but now it can SHOOT LASERS), and you still control the right paddle, but now it's an INTERDIMENSIONAL BATTLE WITH TIME-BENDING WEAPONS!
 
+## 📸 v3 Highlights — Modular Rewrite
+
+**Main Menu** — Mode / Volume / Colorblind toggles, persistent stats
+![Menu](docs/screenshots/01_menu.png)
+
+**Gameplay with Combo × Score Multiplier** — Live combo chain, golden multiplier
+![Gameplay](docs/screenshots/02_gameplay_combo.png)
+
+**Powerup Chaos** — All 7 powerups active: live timer bars on the left, gravity well bending ball trajectories, multi-ball, shield barrier
+![Powerups](docs/screenshots/03_powerups_chaos.png)
+
+**Pause Overlay** — Semi-transparent dim with full key guide
+![Pause](docs/screenshots/04_pause.png)
+
+---
+
+### Previous Versions
+
 This is 2023 ChatGPT
 ![image](https://github.com/gyupro/Cyberball_2084/assets/79894531/2c018c99-8579-4965-a715-4d9b5cfea803)
 
@@ -74,10 +92,18 @@ python main.py
 - `ESC` - Retreat to safety
 
 **In-Game:**
-- `UP/DOWN` arrows - Control your paddle (try to survive)
-- `SPACE` - Fire laser weapon (when laser power-up active) 🔫
-- `R` - Reset scores (for when your pride is broken)
-- `ESC` - Back to menu (tactical retreat)
+- `UP/DOWN` - Player 1 paddle (right)
+- `W/S` - Player 2 paddle (left, in 2P mode)
+- `F` - Fire laser weapon (when laser power-up active) 🔫
+- `P` - Pause / Resume
+- `R` - Reset match
+- `V/B` - Volume −/+
+- `M` - Toggle mute
+- `ESC` - Back to menu
+
+**Menu extras:**
+- `M` - Toggle 1P (vs AI) / 2P (local WASD) mode
+- `C` - Colorblind palette toggle
 
 ## Game Features
 
@@ -112,6 +138,25 @@ python main.py
 **2025 Claude v1:** "What if we made it CYBERPUNK and ADDED EVERYTHING?"  
 **2025 Claude v2:** "EVERYTHING WASN'T ENOUGH! ADD SHIELDS, LASERS, GRAVITY MANIPULATION, AND TIME CONTROL!"
 
+## 🏗️ v3 Architecture (Modular Rewrite)
+
+```
+cyberball/
+├── config.py              # Constants, palette, save path
+├── game.py                # GameState + main loop
+├── entities/              # Ball · Paddle · PowerUp · GravityWell · Laser · Particle
+├── systems/               # audio (PCM sine tones) · stats (JSON persist) · ai (predictive)
+└── ui/                    # menu · hud · effects (glow)
+tests/                     # 12 tests: unit + headless smoke
+```
+
+**Run tests:**
+```bash
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy python -m unittest discover tests
+```
+
+**v3 improvements:** modular package · `GameState` encapsulation (no globals) · predictive AI with wall-bounce folding · persistent high scores (`~/.cyberball2084/save.json`) · live powerup timer bars · 2P local mode · volume control · proper PCM audio · paddle tunneling fix · 12-test suite.
+
 ## TODO 
 
 - [x] ~~Add RL feature~~ 
@@ -123,6 +168,9 @@ python main.py
 - [x] Add time control mechanics ⏰
 - [x] Create laser weapon system 🔫
 - [x] Build combo multiplier system 🎯
+- [x] Modularize into package + unit tests 🧱
+- [x] Persistent high scores 💾
+- [x] 2P local mode (WASD) 🎮
 - [ ] Add boss battles every 5 levels
 - [ ] Create achievement system
 - [ ] Add VR support (because why not)
