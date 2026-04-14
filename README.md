@@ -44,22 +44,6 @@ What began as a humble Pong clone with ChatGPT has now evolved into a full-blown
 
 The blue paddle still moves (but now it can SHOOT LASERS), and you still control the right paddle, but now it's an INTERDIMENSIONAL BATTLE WITH TIME-BENDING WEAPONS!
 
-## 📸 v3 Highlights — Modular Rewrite
-
-**Main Menu** — Mode / Volume / Colorblind toggles, persistent stats
-![Menu](docs/screenshots/01_menu.png)
-
-**Gameplay with Combo × Score Multiplier** — Live combo chain, golden multiplier
-![Gameplay](docs/screenshots/02_gameplay_combo.png)
-
-**Powerup Chaos** — All 7 powerups active: live timer bars on the left, gravity well bending ball trajectories, multi-ball, shield barrier
-![Powerups](docs/screenshots/03_powerups_chaos.png)
-
-**Pause Overlay** — Semi-transparent dim with full key guide
-![Pause](docs/screenshots/04_pause.png)
-
----
-
 ### Previous Versions
 
 This is 2023 ChatGPT
@@ -188,3 +172,9 @@ SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy python -m unittest discover tests
 https://chat.openai.com/share/85b4e920-87ea-4266-856f-bc29edd0af86
 
 *"It was simpler times back then..." - A nostalgic human, 2025*
+
+This is 2026-04-14 Claude
+![Menu](docs/screenshots/01_menu.png)
+![Gameplay](docs/screenshots/02_gameplay_combo.png)
+![Powerups](docs/screenshots/03_powerups_chaos.png)
+![Pause](docs/screenshots/04_pause.png)
