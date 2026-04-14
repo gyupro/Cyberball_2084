@@ -42,5 +42,25 @@ class TestSmoke(unittest.TestCase):
         self.assertEqual(s2.high_score("hard"), 42)
 
 
+class BossFlowSmokeTest(unittest.TestCase):
+    def test_boss_trigger_defeat_rotation(self):
+        from cyberball.systems.boss_manager import BossManager
+        from cyberball.entities.boss import Titan, Barrage, Split
+        mgr = BossManager(boss_x=0)
+        b1 = mgr.on_player_score(5)
+        self.assertIsInstance(b1, Titan)
+        for _ in range(5):
+            b1.take_damage()
+        self.assertTrue(b1.is_defeated())
+        r = mgr.on_boss_defeated()
+        self.assertEqual(r['score_bonus'], 500)
+        b2 = mgr.on_player_score(10)
+        self.assertIsInstance(b2, Barrage)
+        mgr.on_player_lost_point()
+        b3 = mgr.on_player_score(15)
+        # Rotation preserved after loss: still Barrage
+        self.assertIsInstance(b3, Barrage)
+
+
 if __name__ == "__main__":
     unittest.main()
