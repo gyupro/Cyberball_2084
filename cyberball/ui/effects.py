@@ -52,7 +52,6 @@ class ScreenEffect:
 
         self._banner_text = None
         self._banner_remaining_ms = 0
-        self._banner_total_ms = 0
 
     def flash(self, color, duration_ms):
         self._flash_color = color
@@ -81,7 +80,6 @@ class ScreenEffect:
     def banner(self, text, duration_ms):
         self._banner_text = text
         self._banner_remaining_ms = duration_ms
-        self._banner_total_ms = max(1, duration_ms)
 
     def time_scale(self):
         return self._slowmo_factor if self._slowmo_remaining_ms > 0 else 1.0
@@ -93,9 +91,6 @@ class ScreenEffect:
         if not self.flash_active():
             return 0
         return int(180 * (self._flash_remaining_ms / self._flash_total_ms))
-
-    def flash_color(self):
-        return self._flash_color
 
     def shake_offset(self):
         if self._shake_remaining_ms <= 0 or self._shake_intensity <= 0:

@@ -7,7 +7,6 @@ SIZES = {
     'title': 72,
     'heading': 36,
     'body': 20,
-    'small': 14,
 }
 
 
@@ -29,7 +28,3 @@ def heading():
 
 def body():
     return get('body')
-
-
-def small():
-    return get('small')

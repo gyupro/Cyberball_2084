@@ -577,7 +577,7 @@ class Game:
         alive = []
         for p in s.boss_projectiles:
             p.update()
-            if p.rect.right < 0 or p.rect.left > SCREEN_WIDTH:
+            if p.off_screen(SCREEN_WIDTH):
                 continue
             if p.rect.colliderect(s.right_paddle.rect):
                 s.combo_counter = 0
