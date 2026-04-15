@@ -64,6 +64,8 @@ BOSS_BARRAGE_HP = 3
 BOSS_SPLIT_HP = 2  # per sub-paddle
 BOSS_ROTATION = ['titan', 'barrage', 'split']
 BOSS_POWERUP_SPAWN_MULTIPLIER = 2.0
+# Match points awarded per boss HP defeated (Titan=5pts, Barrage=3pts, Split=4pts)
+BOSS_SCORE_BONUS_PER_HP = 1
 
 # Screen effects
 SCREEN_FLASH_MS = 150

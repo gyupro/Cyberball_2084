@@ -34,14 +34,25 @@ class StatsManager:
                 loaded = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError, OSError):
             loaded = {}
+        if not isinstance(loaded, dict):
+            loaded = {}
+
+        def _safe_int(key):
+            v = loaded.get(key, 0)
+            return v if isinstance(v, int) else 0
+
+        def _safe_dict(key):
+            v = loaded.get(key, {})
+            return v if isinstance(v, dict) else {}
+
         return {
-            'games_played': loaded.get('games_played', 0),
-            'total_hits': loaded.get('total_hits', 0),
-            'max_combo': loaded.get('max_combo', 0),
-            'powerups_collected': loaded.get('powerups_collected', 0),
-            'high_scores': {**DEFAULT_STATS['high_scores'], **loaded.get('high_scores', {})},
-            'boss_kills': {**DEFAULT_STATS['boss_kills'], **loaded.get('boss_kills', {})},
-            'settings': {**DEFAULT_SETTINGS, **loaded.get('settings', {})},
+            'games_played': _safe_int('games_played'),
+            'total_hits': _safe_int('total_hits'),
+            'max_combo': _safe_int('max_combo'),
+            'powerups_collected': _safe_int('powerups_collected'),
+            'high_scores': {**DEFAULT_STATS['high_scores'], **_safe_dict('high_scores')},
+            'boss_kills': {**DEFAULT_STATS['boss_kills'], **_safe_dict('boss_kills')},
+            'settings': {**DEFAULT_SETTINGS, **_safe_dict('settings')},
         }
 
     def save(self):

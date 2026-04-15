@@ -38,7 +38,8 @@ class BossManagerTest(unittest.TestCase):
     def test_defeat_reward(self):
         self.mgr.on_player_score(5)
         reward = self.mgr.on_boss_defeated()
-        self.assertEqual(reward['score_bonus'], 500)
+        # Titan hp_max=5 → 5 match points
+        self.assertEqual(reward['score_bonus'], 5)
         self.assertEqual(reward['boss_type'], 'titan')
         self.assertIn(reward['powerup_type'],
                       ['speed', 'size', 'multi', 'shield', 'gravity', 'slow_time', 'laser'])
@@ -47,6 +48,19 @@ class BossManagerTest(unittest.TestCase):
         self.mgr.on_player_score(5)
         # Even if we call again with the same score, no new boss spawns
         self.assertIsNone(self.mgr.on_player_score(5))
+
+    def test_titan_kill_at_5_advances_score_and_triggers_barrage(self):
+        """Regression for I1/I2: bonus from Titan kill (5pts) at score 5
+        pushes player to score 10, which must immediately trigger Barrage."""
+        boss = self.mgr.on_player_score(5)
+        self.assertIsInstance(boss, Titan)
+        for _ in range(5):
+            boss.take_damage()
+        reward = self.mgr.on_boss_defeated()
+        self.assertEqual(reward['score_bonus'], 5)
+        # Caller adds bonus: 5 + 5 = 10. on_player_score(10) should trigger Barrage.
+        next_boss = self.mgr.on_player_score(10)
+        self.assertIsInstance(next_boss, Barrage)
 
 
 if __name__ == '__main__':

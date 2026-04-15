@@ -41,6 +41,28 @@ class StatsSchemaTest(unittest.TestCase):
         self.assertEqual(sm2.data['settings']['volume'], 42)
         self.assertTrue(sm2.data['settings']['colorblind'])
 
+    def test_malformed_subfields_dont_crash(self):
+        """Non-dict shapes for sub-fields should not crash the loader."""
+        broken = {
+            'high_scores': [],
+            'boss_kills': None,
+            'settings': "garbage",
+            'games_played': "not-a-number",
+        }
+        with open(self.tmp.name, 'w') as f:
+            json.dump(broken, f)
+        sm = StatsManager(path=self.tmp.name)
+        self.assertEqual(sm.data['games_played'], 0)
+        self.assertEqual(sm.data['high_scores'].get('easy'), 0)
+        self.assertEqual(sm.data['boss_kills']['titan'], 0)
+        self.assertEqual(sm.data['settings'], DEFAULT_SETTINGS)
+
+    def test_root_not_dict_dont_crash(self):
+        with open(self.tmp.name, 'w') as f:
+            json.dump([1, 2, 3], f)
+        sm = StatsManager(path=self.tmp.name)
+        self.assertEqual(sm.data['settings'], DEFAULT_SETTINGS)
+
     def test_old_save_backward_compat(self):
         old = {
             'games_played': 3,

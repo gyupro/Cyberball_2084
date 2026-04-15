@@ -1,7 +1,9 @@
 """Boss rotation, triggering, defeat rewards."""
 import random
 
-from ..config import BOSS_ROTATION, BOSS_TRIGGER_INTERVAL, POWERUP_TYPES
+from ..config import (
+    BOSS_ROTATION, BOSS_TRIGGER_INTERVAL, POWERUP_TYPES, BOSS_SCORE_BONUS_PER_HP,
+)
 from ..entities.boss import Titan, Barrage, Split
 
 
@@ -39,7 +41,7 @@ class BossManager:
             return None
         reward = {
             'boss_type': boss.boss_type,
-            'score_bonus': boss.hp_max * 100,
+            'score_bonus': boss.hp_max * BOSS_SCORE_BONUS_PER_HP,
             'powerup_type': self.rng.choice(POWERUP_TYPES),
         }
         self.rotation_index = (self.rotation_index + 1) % len(BOSS_ROTATION)

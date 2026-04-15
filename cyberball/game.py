@@ -323,6 +323,9 @@ def _check_boss_trigger(state):
     if boss is not None:
         state.screen_effect.banner("BOSS INCOMING", BOSS_BANNER_MS)
         state.screen_effect.vignette(ALERT_RED, 0.3)
+        # Boss replaces the left side; clear any state attached to the hidden paddle.
+        state.shield_active['left'] = False
+        state.score_flash['left'] = 0
 
 
 def _check_match_end(state):
@@ -585,7 +588,7 @@ class Game:
                 s.spawn_impact(p.rect.centerx, p.rect.centery, ALERT_RED, 1.0)
                 continue
             alive.append(p)
-        s.boss_projectiles = alive[:4]
+        s.boss_projectiles = alive
 
         _spawn_powerup(s)
         for p in s.powerups:
@@ -627,7 +630,7 @@ class Game:
         if s.boss_manager.active and s.boss_manager.current_boss.is_defeated():
             reward = s.boss_manager.on_boss_defeated()
             if reward:
-                s.right_score += reward['score_bonus'] // 100  # scale bonus to points
+                s.right_score += reward['score_bonus']
                 s.stats.record_boss_kill(reward['boss_type'])
                 s.match_stats.record_boss_kill()
                 _apply_powerup(s, reward['powerup_type'])
@@ -636,6 +639,9 @@ class Game:
                 s.boss_projectiles.clear()
                 s.spawn_impact(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2, POWERUP_GOLD, 3.0)
                 _check_match_end(s)
+                # Bonus may have crossed the next 5-point threshold — re-check trigger
+                if s.state == "playing":
+                    _check_boss_trigger(s)
 
         # Laser collisions
         for laser in s.lasers[:]:

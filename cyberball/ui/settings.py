@@ -43,16 +43,24 @@ class SettingsScreen:
         key, _, kind = self.ITEMS[self.cursor]
         current = self.stats.get_setting(key)
         if kind == 'int':
-            new = max(0, min(100, current + direction * 5))
+            base = current if isinstance(current, int) else 0
+            new = max(0, min(100, base + direction * 5))
             self.stats.update_setting(key, new)
         elif kind == 'bool':
-            self.stats.update_setting(key, not current)
+            self.stats.update_setting(key, not bool(current))
         elif kind == 'mode':
-            idx = (MODE_OPTIONS.index(current) + direction) % len(MODE_OPTIONS)
-            self.stats.update_setting(key, MODE_OPTIONS[idx])
+            self._cycle_enum(key, current, MODE_OPTIONS, direction)
         elif kind == 'shake':
-            idx = (SHAKE_OPTIONS.index(current) + direction) % len(SHAKE_OPTIONS)
-            self.stats.update_setting(key, SHAKE_OPTIONS[idx])
+            self._cycle_enum(key, current, SHAKE_OPTIONS, direction)
+
+    def _cycle_enum(self, key, current, options, direction):
+        try:
+            idx = options.index(current)
+        except ValueError:
+            idx = 0
+            direction = 0  # snap to first option
+        new_idx = (idx + direction) % len(options)
+        self.stats.update_setting(key, options[new_idx])
 
     def draw(self, surface):
         surface.fill((0, 0, 0))

@@ -42,6 +42,38 @@ class TestSmoke(unittest.TestCase):
         self.assertEqual(s2.high_score("hard"), 42)
 
 
+class GameOverFlowTest(unittest.TestCase):
+    def test_match_end_and_reset(self):
+        """Reviewer gap 5: gameover → reset_match clears all v4 state."""
+        from cyberball import config
+        tmp = tempfile.mkdtemp()
+        config.SAVE_DIR = tmp
+        config.SAVE_FILE = os.path.join(tmp, "save.json")
+
+        from cyberball.game import Game, _finish_match
+        g = Game(headless=True)
+        g.state.state = "playing"
+        g.state.reset_match()
+        # Simulate match end
+        g.state.right_score = 11
+        _finish_match(g.state, winner="PLAYER")
+        self.assertEqual(g.state.state, "gameover")
+        self.assertIsNotNone(g.state.match_stats.end_ms)
+
+        # Reset clears boss/projectiles/match stats/winner
+        g.state.boss_projectiles.append(object())  # any sentinel
+        g.state.reset_match()
+        self.assertIsNone(g.state.game_over_winner)
+        self.assertEqual(g.state.right_score, 0)
+        self.assertEqual(g.state.left_score, 0)
+        self.assertFalse(g.state.boss_manager.active)
+        self.assertEqual(g.state.boss_projectiles, [])
+        self.assertEqual(g.state.match_stats.boss_kills, 0)
+
+        import pygame
+        pygame.quit()
+
+
 class BossFlowSmokeTest(unittest.TestCase):
     def test_boss_trigger_defeat_rotation(self):
         from cyberball.systems.boss_manager import BossManager
@@ -53,7 +85,7 @@ class BossFlowSmokeTest(unittest.TestCase):
             b1.take_damage()
         self.assertTrue(b1.is_defeated())
         r = mgr.on_boss_defeated()
-        self.assertEqual(r['score_bonus'], 500)
+        self.assertEqual(r['score_bonus'], 5)
         b2 = mgr.on_player_score(10)
         self.assertIsInstance(b2, Barrage)
         mgr.on_player_lost_point()
